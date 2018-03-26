@@ -1,6 +1,6 @@
 # upgradeable-token
 
-Upgradeable token is a token tan can be upgraded, without loosing its source of data
+Upgradeable token is a token tan can be upgraded, retaining its source of data
 
 It uses IntelligentStorage to accomplish this (https://github.com/juanlive/intelligent-storage)
 
