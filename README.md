@@ -45,6 +45,9 @@ This Upgradeable ERC20 token:
 First transfer: 66,074
 Further transfers to the same address: 51,079
 
+First transferFrom: 81,704
+Further tfFrom: 66,709
+
 Common ERC20 token:
 First transfer: 52,341
 Further tfs: 37,341
