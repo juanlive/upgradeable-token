@@ -26,7 +26,7 @@ The token should be registered at Intelligent Storage for first time either manu
 
 registerToken(bytes32 _balances,bytes32 _allowed)
 
-_balances and _allowed can be any bytes32 value (it can be converted from a string) thas has not been yet registered at IntteligentStorage. 
+_balances and _allowed can be any bytes32 value (it can be converted from a string) thas has not been yet registered at IntelligentStorage. 
 
 To do it from a previous version, there is the function upgradeToken at the old version, which will transfer access to Intelligent Storage to the new version and will send it the keys.
 
