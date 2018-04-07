@@ -3,7 +3,8 @@ pragma solidity ^0.4.15;
 /*********************************************************************************
  *********************************************************************************
  *
- * Name of the project: ERC20 Basic Token
+ * Name of the project: ERC20 Upgradeable Token
+ * Using Intelligent Storage
  * Author: Juan Livingston 
  *
  *********************************************************************************
@@ -18,7 +19,7 @@ contract ERC20Basic {
 	event Transfer(address indexed from, address indexed to, uint256 value);
 }
 
-// New upgraded token that has to accept confirmation of its existence
+// Interface for new version of this token that has to accept confirmation of its existence
 contract UpgToken {
 	function confirm(bytes32 _balances,bytes32 _allowed) returns(bool);
 	event TokenUpgraded(address _oldAddress,address _newAddress);
@@ -56,11 +57,8 @@ contract UpgradeableToken {
 	uint multiplier;
 	bool registered;
 
-	bytes32 public balances;
-	bytes32 public allowed;
-
-	//mapping(address => uint256) balances;
-	//mapping(address => mapping(address => uint256)) allowed;
+	bytes32 public balances; // mapping(address => uint256) balances;
+	bytes32 public allowed; // mapping(address => mapping(address => uint256)) allowed;
 
 	GlobalStorageMultiId public Storage;
 
@@ -107,18 +105,23 @@ contract UpgradeableToken {
 		totalSupply = 1000000 * multiplier; // 1,000,000 tokens
 		rootAddress = msg.sender;        
 		Owner = msg.sender;
-		storageAddress = 0xb94cde73d07e0fcd7768cd0c7a8fb2afb403327a; // Rinkeby
+		storageAddress = 0xabc66b985ce66ba651f199555dd4236dbcd14daa; // Kovan
+		// storageAddress = 0xb94cde73d07e0fcd7768cd0c7a8fb2afb403327a; // Rinkeby
 		// storageAddress = 0x8f49722c61a9398a1c5f5ce6e5feeef852831a64; // Mainnet
 		Storage = GlobalStorageMultiId(storageAddress);
 	}
 
+
+	// Registering with Intelligent Storage and upgradeability functions
+	// ----------------------------------------
+
 	function getRegPrice() onlyOwner constant returns(uint) {
-		// Returns value necessary to register token
+		// Returns value necessary to register token at Intelligent Storage
 		return Storage.regPrice() * 2;
 	}
 
 	function registerToken(bytes32 _balances, bytes32 _allowed) onlyOwner payable {
-		// To register Token in globalStorage. bytes32 can be anything that has not be already used by IS
+		// To register Token at Intelligent Storage. bytes32 can be anything that has not be already used by IS
 		require(!registered); // It only does it one time
 		balances = _balances;
 		allowed = _allowed;
@@ -148,13 +151,19 @@ contract UpgradeableToken {
 		return true;
 	}
 
-	// Only root function
-	function changeRoot(address _newrootAddress) onlyRoot returns(bool){
-		rootAddress = _newrootAddress;
-		return true;
+	// Internal functions to communicate with Intelligent Storage
+	// -----------------------------------
+
+	function setUint(bytes32 storKey , address _address , uint _value) internal {
+		Storage.setUint(storKey , bytes32(_address) , _value , true);
 	}
 
-	// Only owner functions
+	function getUint(bytes32 storKey , address _address) internal constant returns(uint _value) {
+		return Storage.getUint(storKey , bytes32(_address));
+	}
+
+	// Admin/Owner functions
+	// -------------------------------------
 
 	// To send ERC20 tokens sent accidentally
 	function sendToken(address _token,address _to , uint _value) onlyOwner returns(bool) {
@@ -163,11 +172,21 @@ contract UpgradeableToken {
 		return true;
 	}
 
+	function flushEthers() onlyOwner returns(bool) {
+		rootAddress.send(this.balance);
+	}
+
+	// Only root function
+	function changeRoot(address _newrootAddress) onlyRoot returns(bool){
+		rootAddress = _newrootAddress;
+		return true;
+	}
+
 	function changeOwner(address _newOwner) onlyOwner returns(bool) {
 		Owner = _newOwner;
 		return true;
 	}
-	   
+	  
 	function unlock() onlyOwner returns(bool) {
 		locked = false;
 		return true;
@@ -179,9 +198,13 @@ contract UpgradeableToken {
 	}
 
 
+	// Token Main functions
+	// -----------------------------------------------------
+
+
 	function burn(uint256 _value) onlyOwner returns(bool) {
 		if ( Storage.getUint(balances,bytes32(rootAddress)) < _value ) revert();
-		Storage.setUint(balances,bytes32(rootAddress), safeSub( Storage.getUint(balances,bytes32(rootAddress)) , _value ) , true);
+		setUint(balances,rootAddress, safeSub( getUint(balances,rootAddress),_value )); // balances[rootAddress] = safeSub(balances[rootAddress],value);
 		totalSupply = safeSub( totalSupply,  _value );
 		Transfer(rootAddress, 0x0, _value);
 		return true;
@@ -197,24 +220,24 @@ contract UpgradeableToken {
 
 	// Standard function transfer
 	function transfer(address _to, uint _value) isUnlocked returns (bool success) {
-		if (Storage.getUint(balances,bytes32(msg.sender)) < _value) return false;
-		Storage.setUint(balances,bytes32(msg.sender), safeSub(Storage.getUint(balances,bytes32(msg.sender)), _value) , true); // balances[msg.sender] = safeSub(balances[msg.sender], _value);
-		Storage.setUint(balances,bytes32(_to), safeAdd(Storage.getUint(balances,bytes32(_to)), _value) , true); // balances[_to] = safeAdd(balances[_to], _value);
+		if (getUint(balances,msg.sender) < _value) return false;
+		setUint(balances,msg.sender, safeSub(getUint(balances,msg.sender), _value)); // balances[msg.sender] = safeSub(balances[msg.sender], _value);
+		setUint(balances,_to, safeAdd(getUint(balances,_to), _value)); // balances[_to] = safeAdd(balances[_to], _value);
 		Transfer(msg.sender,_to,_value);
 		return true;
 		}
 
 
 	function transferFrom(address _from, address _to, uint256 _value) public returns(bool) {
-		bytes32 _bytes = bytes32(uint(_from) + uint(msg.sender));
+		address _bytes = address(uint(_from) + uint(msg.sender));
 		if ( locked && msg.sender != Owner && msg.sender != rootAddress ) return false; 
-		if ( Storage.getUint(balances,bytes32(_from)) < _value ) return false; // Check if the sender has enough
-		if ( _value > Storage.getUint(allowed,_bytes) ) return false; // Check allowance
+		if ( getUint(balances,_from) < _value ) return false; // Check if the sender has enough
+		if ( _value > getUint(allowed,_bytes) ) return false; // Check allowance
 
-		Storage.setUint(balances,bytes32(_from), safeSub(Storage.getUint(balances,bytes32(_from)) , _value) , true); // balances[_from] = safeSub(balances[_from] , _value);
-		Storage.setUint(balances,bytes32(_to), safeAdd(Storage.getUint(balances,bytes32(_to)) , _value) , true); // balances[_to] = safeAdd(balances[_to] , _value);
+		setUint(balances,_from, safeSub(getUint(balances,_from) , _value)); // balances[_from] = safeSub(balances[_from] , _value);
+		setUint(balances,_to, safeAdd(getUint(balances,_to) , _value)); // balances[_to] = safeAdd(balances[_to] , _value);
 
-		Storage.setUint(allowed,_bytes, safeSub( Storage.getUint(allowed,_bytes) , _value ) , true); // allowed[_from][msg.sender] = safeSub( allowed[_from][msg.sender] , _value );
+		setUint(allowed,_bytes, safeSub( getUint(allowed,_bytes) , _value )); // allowed[_from][msg.sender] = safeSub( allowed[_from][msg.sender] , _value );
 
 		Transfer(_from , _to , _value);
 		return true;
@@ -222,20 +245,20 @@ contract UpgradeableToken {
 
 
 	function balanceOf(address _owner) constant returns(uint256 balance) {
-		return Storage.getUint(balances,bytes32(_owner));
+		return getUint(balances,_owner);
 	}
 
 
 	function approve(address _spender, uint _value) returns(bool) {
-		bytes32 _bytes = bytes32(uint(msg.sender) + uint(_spender));
-		Storage.setUint(allowed,_bytes, _value , true); // allowed[msg.sender][_spender] = _value;
+		address _bytes = address(uint(msg.sender) + uint(_spender));
+		setUint(allowed,_bytes,_value); // allowed[msg.sender][_spender] = _value;
 		Approval(msg.sender, _spender, _value);
 		return true;
 	}
 
 
 	function allowance(address _owner, address _spender) constant returns(uint256) {
-		bytes32 _bytes = bytes32(uint(_owner) + uint(_spender));
-		return Storage.getUint(allowed,_bytes);
+		address _bytes = address(uint(_owner) + uint(_spender));
+		return getUint(allowed,_bytes);
 	}
 }
