@@ -22,12 +22,17 @@ You can check the code and the balance for the rootAddress, and check some trans
 
 Usage
 
+The token should be registered at Intelligent Storage for first time either manually or through a previous version. To do it manually, there is the registerToken function. It will initialize the token with Intelligent Storage.
 
 registerToken(bytes32 _balances,bytes32 _allowed)
 
 _balances and _allowed can be any bytes32 value (it can be converted from a string) thas has not been yet registered at IntteligentStorage. 
 
+To do it from a previous version, there is the function upgradeToken at the old version, which will transfer access to Intelligent Storage to the new version and will send it the keys.
+
 upgradeToken(address _newAddress)
 
-When a new version of the token has been deployed, this will transfer ownership of storage to the new version. The new version should have a "confirm" function that will register the two keys needed to contact with IntelligentStorage
+The new version should have a "confirm" function that will receive the two keys needed to contact with IntelligentStorage.
+
+
 
