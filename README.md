@@ -11,7 +11,17 @@ It is an ERC20 token with three extra functions:
 - confirm is called by upgradeToken of an old token to transfer the keys to manage storage
 
 
+There is a token deployed in Kovan network at 
+0x6c971a10ed693958bd9cba13a2489e10ada1e97a
+
+https://kovan.etherscan.io/address/0x6c971a10ed693958bd9cba13a2489e10ada1e97a
+
+You can check the code and the balance for the rootAddress, and check some transaction details and event logs. You can also ask me for some tokens to try it.
+
+
+
 Usage
+
 
 registerToken(bytes32 _balances,bytes32 _allowed)
 
