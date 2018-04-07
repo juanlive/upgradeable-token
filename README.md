@@ -41,8 +41,16 @@ Measurements
 
 Approx gas consumed by functions:
 
-transfer: 66,200
-transferFrom: 81,800
+This Upgradeable ERC20 token:
+First transfer: 66,200
+Further transfers to the same address: 51,730
+
+Common ERC20 token:
+First transfer: 52,341
+Further tfs: 37,341
+
+
+
 
 
 
